@@ -1,0 +1,9 @@
+spring:
+  application:
+    name: oneqa-backend
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info

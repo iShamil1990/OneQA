@@ -1,0 +1,72 @@
+# Auto detect text files and normalize to LF
+* text=auto eol=lf
+
+# Windows scripts
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# PowerShell
+*.ps1 text eol=lf
+
+# Shell
+*.sh text eol=lf
+
+# Source code
+*.java text
+*.kt text
+*.kts text
+*.xml text
+*.sql text
+*.properties text
+*.yml text
+*.yaml text
+*.json text
+*.md text
+*.feature text
+*.txt text
+
+# Frontend
+*.ts text
+*.tsx text
+*.js text
+*.jsx text
+*.vue text
+*.css text
+*.scss text
+*.html text
+*.svg text
+
+# Docker
+Dockerfile text
+*.dockerfile text
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.webp binary
+*.ico binary
+*.pdf binary
+*.zip binary
+*.7z binary
+*.jar binary
+*.war binary
+*.ear binary
+*.class binary
+*.exe binary
+*.dll binary
+*.so binary
+*.dylib binary
+*.ttf binary
+*.otf binary
+*.woff binary
+*.woff2 binary
+
+# Git merge behavior
+package-lock.json merge=union
+pom.xml merge=union
+
+# Linguist hints
+*.feature linguist-language=Gherkin
+*.vue linguist-language=Vue

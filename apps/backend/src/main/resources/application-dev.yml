@@ -1,0 +1,5 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/oneqa
+    username: oneqa
+    password: oneqa
