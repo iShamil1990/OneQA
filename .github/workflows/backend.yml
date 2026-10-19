@@ -5,11 +5,13 @@ on:
     branches: [main, develop]
     paths:
       - "apps/backend/**"
+      - "deploy/**"
       - ".github/workflows/backend.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "apps/backend/**"
+      - "deploy/**"
       - ".github/workflows/backend.yml"
 
 jobs:
@@ -47,3 +49,14 @@ jobs:
           cache-dependency-path: apps/backend/pom.xml
       - name: Verify
         run: mvn -B --no-transfer-progress verify
+      - name: Validate Cloud and Enterprise Compose
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          ONEQA_SECURITY_JWK_SET_URI: https://identity.example.test/jwks
+          ONEQA_SECURITY_ISSUER: https://identity.example.test
+          ONEQA_SECURITY_AUDIENCE: oneqa-api
+          DB_URL: jdbc:postgresql://localhost:5432/oneqa_test
+        run: |
+          docker compose -f deploy/compose.enterprise.yml config -q
+          docker compose -f deploy/compose.cloud.yml config -q
