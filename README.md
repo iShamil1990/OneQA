@@ -62,18 +62,11 @@ docs/
 scripts/
 ```
 
-## Planned Roadmap
+## Development Roadmap
 
--   PR-0001 Repository Bootstrap
--   PR-0002 Backend Bootstrap
--   PR-0003 Frontend Bootstrap
--   PR-0004 Authentication
--   PR-0005 Workspace
--   PR-0006 Projects
--   PR-0007 Agent
--   PR-0008 Executions
--   PR-0009 Vanessa Adapter
--   PR-0010 First End-to-End Test Run
+See [the maintained roadmap](docs/ROADMAP.md) for completed PRs, work in
+progress, proposed delivery sequence and quality gates. The original PR-0004
+through PR-0010 plan has been superseded by actual implementation.
 
 ## License
 
