@@ -60,6 +60,7 @@ jobs:
         run: |
           docker compose -f deploy/compose.enterprise.yml config -q
           docker compose -f deploy/compose.cloud.yml config -q
+          KEYCLOAK_DB_PASSWORD=ci-only-password KEYCLOAK_ADMIN_USERNAME=admin KEYCLOAK_ADMIN_PASSWORD=ci-only-password KEYCLOAK_HOSTNAME=https://identity.example.test docker compose -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml config -q
       - name: Build backend Docker image
         working-directory: .
         run: docker build --tag oneqa-backend:ci apps/backend
@@ -91,3 +92,28 @@ jobs:
         if: always()
         working-directory: .
         run: docker rm -f oneqa-backend-ci || true
+      - name: Enterprise backup and restore integration test
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          ONEQA_SECURITY_JWK_SET_URI: https://identity.example.test/jwks
+          ONEQA_SECURITY_ISSUER: https://identity.example.test
+          ONEQA_SECURITY_AUDIENCE: oneqa-api
+          ONEQA_DESTRUCTIVE_TEST: "YES"
+        run: |
+          printf 'POSTGRES_PASSWORD=%s\nONEQA_SECURITY_JWK_SET_URI=%s\nONEQA_SECURITY_ISSUER=%s\nONEQA_SECURITY_AUDIENCE=%s\n' \
+            "$POSTGRES_PASSWORD" "$ONEQA_SECURITY_JWK_SET_URI" "$ONEQA_SECURITY_ISSUER" "$ONEQA_SECURITY_AUDIENCE" > deploy/.env
+          chmod 600 deploy/.env
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml up -d --wait postgres
+          bash deploy/scripts/test-backup-restore.sh
+      - name: Cleanup Enterprise integration test
+        if: always()
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          ONEQA_SECURITY_JWK_SET_URI: https://identity.example.test/jwks
+          ONEQA_SECURITY_ISSUER: https://identity.example.test
+          ONEQA_SECURITY_AUDIENCE: oneqa-api
+        run: |
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml down -v || true
+          rm -f deploy/.env
