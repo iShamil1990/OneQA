@@ -1,5 +1,5 @@
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/oneqa
-    username: oneqa
-    password: oneqa
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/oneqa}
+    username: ${DB_USERNAME:oneqa}
+    password: ${DB_PASSWORD:}
