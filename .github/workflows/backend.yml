@@ -60,3 +60,34 @@ jobs:
         run: |
           docker compose -f deploy/compose.enterprise.yml config -q
           docker compose -f deploy/compose.cloud.yml config -q
+      - name: Build backend Docker image
+        working-directory: .
+        run: docker build --tag oneqa-backend:ci apps/backend
+      - name: Smoke test backend Docker container
+        working-directory: .
+        run: |
+          docker run -d --name oneqa-backend-ci --network host \
+            -e DB_URL=jdbc:postgresql://127.0.0.1:5432/oneqa_test \
+            -e DB_USERNAME=oneqa_test \
+            -e DB_PASSWORD=ci-only-password \
+            -e ONEQA_SECURITY_JWK_SET_URI=https://identity.example.test/jwks \
+            -e ONEQA_SECURITY_ISSUER=https://identity.example.test \
+            -e ONEQA_SECURITY_AUDIENCE=oneqa-api \
+            oneqa-backend:ci
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "Backend health check passed"
+              exit 0
+            fi
+            if [ "$(docker inspect -f '{{.State.Running}}' oneqa-backend-ci)" != "true" ]; then
+              docker logs oneqa-backend-ci
+              exit 1
+            fi
+            sleep 2
+          done
+          docker logs oneqa-backend-ci
+          exit 1
+      - name: Cleanup smoke-test container
+        if: always()
+        working-directory: .
+        run: docker rm -f oneqa-backend-ci || true
