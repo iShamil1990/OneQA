@@ -18,7 +18,7 @@ class JwtValidationTest {
             .issuer(issuer)
             .subject(UUID.randomUUID().toString())
             .audience(audiences)
-            .issuedAt(now.minusSeconds(60))
+            .issuedAt(expiresAt.isBefore(now) ? expiresAt.minusSeconds(600) : now.minusSeconds(60))
             .expiresAt(expiresAt)
             .build();
     }
