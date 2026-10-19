@@ -15,9 +15,27 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: oneqa_test
+          POSTGRES_USER: oneqa_test
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U oneqa_test -d oneqa_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
     defaults:
       run:
         working-directory: apps/backend
+    env:
+      DB_URL: jdbc:postgresql://localhost:5432/oneqa_test
+      DB_USERNAME: oneqa_test
+      DB_PASSWORD: ci-only-password
     steps:
       - uses: actions/checkout@v4
       - name: Set up JDK 21
