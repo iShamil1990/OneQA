@@ -58,3 +58,10 @@ These scripts back up **only the OneQA application PostgreSQL database**.
 Keycloak's separate PostgreSQL database, object storage, configuration and
 secrets require independent backup plans. Do not treat this as complete
 disaster recovery or a fully offline installation.
+
+## Enterprise security hardening (PR-0011)
+
+See [Enterprise security and recovery checklist](enterprise-security.md) for
+Keycloak database backup/restore, TLS reverse proxy prerequisites, secret
+handling and disaster recovery limitations. The scripts do not implement
+coordinated application/identity snapshots or full offline packaging.
