@@ -1,0 +1,39 @@
+name: oneqa-enterprise
+services:
+  postgres:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: oneqa
+      POSTGRES_USER: oneqa
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+    volumes:
+      - enterprise-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U oneqa -d oneqa"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [private]
+  backend:
+    build:
+      context: ../apps/backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      ONEQA_DEPLOYMENT_MODE: enterprise
+      DB_URL: jdbc:postgresql://postgres:5432/oneqa
+      DB_USERNAME: oneqa
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD}
+      ONEQA_SECURITY_JWK_SET_URI: ${ONEQA_SECURITY_JWK_SET_URI:?Set internal JWK URI}
+      ONEQA_SECURITY_ISSUER: ${ONEQA_SECURITY_ISSUER:?Set trusted issuer}
+      ONEQA_SECURITY_AUDIENCE: ${ONEQA_SECURITY_AUDIENCE:?Set API audience}
+    ports:
+      - "127.0.0.1:${ONEQA_HTTP_PORT:-8080}:8080"
+    networks: [private]
+networks:
+  private:
+volumes:
+  enterprise-postgres:
