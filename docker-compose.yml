@@ -1,60 +1,54 @@
-version: "3.9"
-
 name: oneqa
 
 services:
   postgres:
     image: postgres:17
-    container_name: oneqa-postgres
     restart: unless-stopped
     environment:
-      POSTGRES_DB: oneqa
-      POSTGRES_USER: oneqa
-      POSTGRES_PASSWORD: oneqa
+      POSTGRES_DB: ${POSTGRES_DB:-oneqa}
+      POSTGRES_USER: ${POSTGRES_USER:-oneqa}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U oneqa -d oneqa"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-oneqa} -d ${POSTGRES_DB:-oneqa}"]
       interval: 10s
       timeout: 5s
       retries: 10
 
   redis:
     image: redis:7-alpine
-    container_name: oneqa-redis
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"
     volumes:
       - redis-data:/data
     command: redis-server --appendonly yes
 
   minio:
     image: minio/minio:latest
-    container_name: oneqa-minio
     restart: unless-stopped
     environment:
-      MINIO_ROOT_USER: oneqa
-      MINIO_ROOT_PASSWORD: oneqa123
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?Set MINIO_ROOT_USER in .env}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?Set MINIO_ROOT_PASSWORD in .env}
     command: server /data --console-address ":9001"
     ports:
-      - "9000:9000"
-      - "9001:9001"
+      - "127.0.0.1:9000:9000"
+      - "127.0.0.1:9001:9001"
     volumes:
       - minio-data:/data
 
   rabbitmq:
     image: rabbitmq:4-management
-    container_name: oneqa-rabbitmq
     restart: unless-stopped
     ports:
-      - "5672:5672"
-      - "15672:15672"
+      - "127.0.0.1:5672:5672"
+      - "127.0.0.1:15672:15672"
     environment:
-      RABBITMQ_DEFAULT_USER: oneqa
-      RABBITMQ_DEFAULT_PASS: oneqa
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER:?Set RABBITMQ_DEFAULT_USER in .env}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS:?Set RABBITMQ_DEFAULT_PASS in .env}
 
 volumes:
   postgres-data:
