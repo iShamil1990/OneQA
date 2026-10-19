@@ -1,0 +1,38 @@
+# Optional local OIDC service for Enterprise. Run alongside compose.enterprise.yml.
+# Terminate TLS at a trusted reverse proxy; never publish this HTTP port publicly.
+services:
+  identity-db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD}
+    volumes:
+      - identity-postgres:/var/lib/postgresql/data
+    networks: [private]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keycloak -d keycloak"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+  identity:
+    image: quay.io/keycloak/keycloak:26.2
+    command: start --http-enabled=true --hostname=${KEYCLOAK_HOSTNAME:?Set HTTPS public hostname} --proxy-headers=xforwarded
+    restart: unless-stopped
+    depends_on:
+      identity-db:
+        condition: service_healthy
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://identity-db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: ${KEYCLOAK_DB_PASSWORD:?Set KEYCLOAK_DB_PASSWORD}
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN_USERNAME:?Set admin username}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set admin password}
+      KC_HEALTH_ENABLED: "true"
+    ports:
+      - "127.0.0.1:${KEYCLOAK_HTTP_PORT:-8081}:8080"
+    networks: [private]
+volumes:
+  identity-postgres:
