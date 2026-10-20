@@ -117,3 +117,36 @@ jobs:
         run: |
           docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml down -v || true
           rm -f deploy/.env
+      - name: Keycloak PostgreSQL recovery integration test
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          ONEQA_SECURITY_JWK_SET_URI: https://identity.example.test/jwks
+          ONEQA_SECURITY_ISSUER: https://identity.example.test
+          ONEQA_SECURITY_AUDIENCE: oneqa-api
+          KEYCLOAK_DB_PASSWORD: ci-only-keycloak-password
+          KEYCLOAK_ADMIN_USERNAME: ci-admin
+          KEYCLOAK_ADMIN_PASSWORD: ci-only-admin-password
+          KEYCLOAK_HOSTNAME: https://identity.example.test
+          ONEQA_DESTRUCTIVE_TEST: "YES"
+        run: |
+          printf 'POSTGRES_PASSWORD=%s\nONEQA_SECURITY_JWK_SET_URI=%s\nONEQA_SECURITY_ISSUER=%s\nONEQA_SECURITY_AUDIENCE=%s\nKEYCLOAK_DB_PASSWORD=%s\nKEYCLOAK_ADMIN_USERNAME=%s\nKEYCLOAK_ADMIN_PASSWORD=%s\nKEYCLOAK_HOSTNAME=%s\n' \
+            "$POSTGRES_PASSWORD" "$ONEQA_SECURITY_JWK_SET_URI" "$ONEQA_SECURITY_ISSUER" "$ONEQA_SECURITY_AUDIENCE" "$KEYCLOAK_DB_PASSWORD" "$KEYCLOAK_ADMIN_USERNAME" "$KEYCLOAK_ADMIN_PASSWORD" "$KEYCLOAK_HOSTNAME" > deploy/.env
+          chmod 600 deploy/.env
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml up -d --wait identity-db
+          bash deploy/scripts/test-identity-recovery.sh
+      - name: Cleanup Keycloak recovery test
+        if: always()
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          ONEQA_SECURITY_JWK_SET_URI: https://identity.example.test/jwks
+          ONEQA_SECURITY_ISSUER: https://identity.example.test
+          ONEQA_SECURITY_AUDIENCE: oneqa-api
+          KEYCLOAK_DB_PASSWORD: ci-only-keycloak-password
+          KEYCLOAK_ADMIN_USERNAME: ci-admin
+          KEYCLOAK_ADMIN_PASSWORD: ci-only-admin-password
+          KEYCLOAK_HOSTNAME: https://identity.example.test
+        run: |
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml down -v || true
+          rm -f deploy/.env
