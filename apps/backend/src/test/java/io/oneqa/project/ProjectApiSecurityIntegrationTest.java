@@ -10,6 +10,8 @@ import io.oneqa.workspace.OrganizationAccessService;
 import io.oneqa.workspace.OrganizationAccessService.Role;
 import io.oneqa.workspace.WorkspaceService;
 import java.util.UUID;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
@@ -60,8 +62,8 @@ class ProjectApiSecurityIntegrationTest {
         UUID org = workspaces.createOrganization("Projects A " + UUID.randomUUID());
         UUID other = workspaces.createOrganization("Projects B " + UUID.randomUUID());
         UUID ws = workspaces.createWorkspace(other, "Other workspace");
-        org.junit.jupiter.api.Assertions.assertThrows(IllegalArgumentException.class,
+        assertThrows(IllegalArgumentException.class,
             () -> projects.create(org, ws, "Escape", null));
-        org.junit.jupiter.api.Assertions.assertTrue(projects.list(org, ws).isEmpty());
+        assertTrue(projects.list(org, ws).isEmpty());
     }
 }
