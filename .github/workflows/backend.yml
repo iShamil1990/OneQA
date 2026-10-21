@@ -150,3 +150,49 @@ jobs:
         run: |
           docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml down -v || true
           rm -f deploy/.env
+      - name: Offline Compose no-pull startup smoke test
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          ONEQA_SECURITY_JWK_SET_URI: https://identity.example.test/jwks
+          ONEQA_SECURITY_ISSUER: https://identity.example.test
+          ONEQA_SECURITY_AUDIENCE: oneqa-api
+          KEYCLOAK_DB_PASSWORD: ci-only-keycloak-password
+          KEYCLOAK_ADMIN_USERNAME: ci-admin
+          KEYCLOAK_ADMIN_PASSWORD: ci-only-admin-password
+          KEYCLOAK_HOSTNAME: https://identity.example.test
+        run: |
+          docker tag oneqa-backend:ci oneqa-backend:offline
+          docker pull postgres:17
+          docker tag postgres:17 oneqa-postgres:17
+          docker pull quay.io/keycloak/keycloak:26.2
+          docker tag quay.io/keycloak/keycloak:26.2 oneqa-keycloak:26.2
+          printf 'POSTGRES_PASSWORD=%s\nONEQA_SECURITY_JWK_SET_URI=%s\nONEQA_SECURITY_ISSUER=%s\nONEQA_SECURITY_AUDIENCE=%s\nKEYCLOAK_DB_PASSWORD=%s\nKEYCLOAK_ADMIN_USERNAME=%s\nKEYCLOAK_ADMIN_PASSWORD=%s\nKEYCLOAK_HOSTNAME=%s\n' \
+            "$POSTGRES_PASSWORD" "$ONEQA_SECURITY_JWK_SET_URI" "$ONEQA_SECURITY_ISSUER" "$ONEQA_SECURITY_AUDIENCE" "$KEYCLOAK_DB_PASSWORD" "$KEYCLOAK_ADMIN_USERNAME" "$KEYCLOAK_ADMIN_PASSWORD" "$KEYCLOAK_HOSTNAME" > deploy/.env
+          chmod 600 deploy/.env
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml -f deploy/compose.offline.yml config -q
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml -f deploy/compose.offline.yml up -d --no-build --pull never postgres backend
+          for attempt in $(seq 1 60); do
+            if curl --fail --silent http://127.0.0.1:8080/actuator/health | grep -q '"status":"UP"'; then
+              echo "Offline no-pull backend health check passed"
+              exit 0
+            fi
+            sleep 2
+          done
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml -f deploy/compose.offline.yml logs backend
+          exit 1
+      - name: Cleanup offline Compose smoke test
+        if: always()
+        working-directory: .
+        env:
+          POSTGRES_PASSWORD: ci-only-password
+          ONEQA_SECURITY_JWK_SET_URI: https://identity.example.test/jwks
+          ONEQA_SECURITY_ISSUER: https://identity.example.test
+          ONEQA_SECURITY_AUDIENCE: oneqa-api
+          KEYCLOAK_DB_PASSWORD: ci-only-keycloak-password
+          KEYCLOAK_ADMIN_USERNAME: ci-admin
+          KEYCLOAK_ADMIN_PASSWORD: ci-only-admin-password
+          KEYCLOAK_HOSTNAME: https://identity.example.test
+        run: |
+          docker compose --env-file deploy/.env -f deploy/compose.enterprise.yml -f deploy/compose.identity.yml -f deploy/compose.offline.yml down -v || true
+          rm -f deploy/.env

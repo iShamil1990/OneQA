@@ -1,0 +1,14 @@
+# Offline overlay: load images before running; --no-build --pull never required.
+services:
+  postgres:
+    image: oneqa-postgres:17
+    pull_policy: never
+  backend:
+    image: oneqa-backend:offline
+    pull_policy: never
+  identity-db:
+    image: oneqa-postgres:17
+    pull_policy: never
+  identity:
+    image: oneqa-keycloak:26.2
+    pull_policy: never
