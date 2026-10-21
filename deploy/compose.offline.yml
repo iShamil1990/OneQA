@@ -1,0 +1,15 @@
+# Overlay for an air-gapped runtime. Requires preloaded images from bundle.
+services:
+  postgres:
+    image: oneqa-postgres:17
+    pull_policy: never
+  backend:
+    image: oneqa-backend:offline
+    pull_policy: never
+    build: !reset null
+  identity-db:
+    image: oneqa-postgres:17
+    pull_policy: never
+  identity:
+    image: oneqa-keycloak:26.2
+    pull_policy: never
