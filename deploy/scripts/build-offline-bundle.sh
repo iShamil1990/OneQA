@@ -12,16 +12,14 @@ docker pull postgres:17
 docker pull quay.io/keycloak/keycloak:26.2
 docker tag postgres:17 oneqa-postgres:17
 docker tag quay.io/keycloak/keycloak:26.2 oneqa-keycloak:26.2
-docker image save -o "$tmp/images.tar" \
-  oneqa-backend:offline oneqa-postgres:17 oneqa-keycloak:26.2
-cp deploy/compose.enterprise.yml deploy/compose.identity.yml deploy/compose.offline.yml "$tmp/"
-cp deploy/.env.example "$tmp/env.example"
-mkdir -p "$tmp/scripts"
+docker image save -o "$tmp/images.tar" oneqa-backend:offline oneqa-postgres:17 oneqa-keycloak:26.2
+mkdir -p "$tmp/deploy/scripts" "$tmp/apps/backend"
+cp deploy/compose.enterprise.yml deploy/compose.identity.yml deploy/compose.offline.yml deploy/.env.example "$tmp/deploy/"
 cp deploy/scripts/backup-enterprise.sh deploy/scripts/restore-enterprise.sh \
-  deploy/scripts/backup-identity.sh deploy/scripts/restore-identity.sh "$tmp/scripts/"
+  deploy/scripts/backup-identity.sh deploy/scripts/restore-identity.sh "$tmp/deploy/scripts/"
 cp deploy/scripts/import-offline-bundle.sh "$tmp/import-offline-bundle.sh"
 cp docs/operations/offline-enterprise.md "$tmp/README.md"
-(cd "$tmp" && sha256sum images.tar compose.enterprise.yml compose.identity.yml compose.offline.yml env.example scripts/* import-offline-bundle.sh README.md > SHA256SUMS)
+(cd "$tmp" && sha256sum images.tar deploy/compose.enterprise.yml deploy/compose.identity.yml deploy/compose.offline.yml deploy/.env.example deploy/scripts/* import-offline-bundle.sh README.md > SHA256SUMS)
 mkdir -p "$(dirname "$output")"
 tar -C "$tmp" -czf "$output" .
 sha256sum "$output" > "$output.sha256"
