@@ -1,28 +1,24 @@
 # OneQA Enterprise offline container bundle (PR-0012)
 
-This bundle provides **container images and Compose configuration** for a
-single-host Enterprise installation with optional local Keycloak. It does not
-install Docker, provide TLS certificates, configure a Keycloak realm, or
-include a licensed production support agreement.
+This bundle packages container images and Compose configuration for a
+single-host Enterprise installation with local Keycloak. Docker Engine,
+Compose v2, TLS reverse proxy, DNS, certificates and Keycloak realm/client
+configuration must be provided separately.
 
-## Prepare on a connected build machine
+## Build on a connected machine
 
-Install Docker Engine with Compose v2, Bash, tar and sha256sum. From the
-repository root, run:
+From the repository root:
 
 ```sh
 bash deploy/scripts/build-offline-bundle.sh /secure/output/oneqa-offline.tar.gz
 ```
 
-The script builds the backend image and downloads PostgreSQL 17 and
-Keycloak 26.2 images. These tags are **not immutable digests**; capture,
-scan, approve and pin image digests for production release management.
-The outer .sha256 file must be distributed through a trusted channel.
-No credentials are included in the archive.
+This builds the backend and pulls PostgreSQL 17 and Keycloak 26.2.
+These version tags are **not immutable image digests**. Pin, scan and
+approve image digests before a production release. Distribute the outer
+SHA-256 checksum through a trusted independent channel.
 
-## Import inside the offline network
-
-Verify the bundle checksum from the trusted channel before extracting:
+## Import and run in the offline network
 
 ```sh
 sha256sum -c oneqa-offline.tar.gz.sha256
@@ -30,35 +26,35 @@ mkdir -p oneqa-offline
 tar -xzf oneqa-offline.tar.gz -C oneqa-offline
 cd oneqa-offline
 bash import-offline-bundle.sh
-cp env.example .env
-chmod 600 .env
+cp deploy/.env.example deploy/.env
+chmod 600 deploy/.env
 ```
 
-Edit .env to replace all example secrets, Keycloak HTTPS hostname and
-OneQA JWT issuer/JWKS/audience. A reachable local TLS reverse proxy and
-correctly configured Keycloak realm/client are prerequisites for login.
-
-Run with **no image pulling** (both files are required):
+Replace all example secrets and configure local issuer/JWKS, audience,
+Keycloak HTTPS hostname, and trusted TLS reverse proxy. Start without
+build or image pull:
 
 ```sh
-docker compose --env-file .env -f compose.enterprise.yml -f compose.identity.yml -f compose.offline.yml up -d --no-build --pull never
+docker compose --env-file deploy/.env \
+  -f deploy/compose.enterprise.yml \
+  -f deploy/compose.identity.yml \
+  -f deploy/compose.offline.yml \
+  up -d --no-build --pull never
 ```
 
-For Enterprise without the bundled Keycloak service, use only the Enterprise
-file plus a backend-only overlay; the supplied offline overlay references
-identity services and is intended for the full local identity stack.
+The archive preserves repository-relative `deploy/` paths so backup and
+restore scripts can be invoked from the extracted bundle root.
 
-## Limits and verification
+## Security and limitations
 
-- Docker Engine and Compose must already be installed on the target host.
-- The backend container must reach the configured issuer/JWKS over the
-  customer network; localhost-only identity HTTP requires a properly
-  configured HTTPS proxy and DNS.
-- Application, Keycloak and TLS secrets must be provisioned separately.
-- Backup/restore scripts in this archive assume repository-relative
-  `deploy/.env` paths and therefore must be adapted or run from the
-  repository layout. They are included as reference utilities.
-- Image import does not itself prove offline runtime behavior.
-- CI should verify container startup with preloaded images, no builds,
-  and no pulls; network isolation and end-to-end authentication still
-  require dedicated validation.
+- Preinstall Docker Engine/Compose on the target host.
+- No secrets, realm configuration, certificates, or Docker installer are
+  included. Never place production secrets in the archive.
+- The backend must reach local OIDC issuer/JWKS; Keycloak requires a
+  customer-managed HTTPS proxy and correct DNS.
+- `docker image load` does not establish offline runtime readiness.
+  CI must exercise no-build/no-pull startup. Full network-isolated
+  end-to-end authentication is a separate acceptance test.
+- The application and identity PostgreSQL databases must both be backed up.
+- Bundle integrity via SHA-256 does not prove publisher authenticity;
+  use a trusted distribution and signing process.
