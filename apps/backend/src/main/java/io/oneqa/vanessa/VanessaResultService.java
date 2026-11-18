@@ -33,12 +33,14 @@ public class VanessaResultService {
         if (payload.steps() == null || payload.steps().size() > 1000 ||
             payload.artifacts() == null || payload.artifacts().size() > 50)
             throw new IllegalArgumentException("Invalid steps or artifacts");
-        int authorized = jdbc.queryForObject("""
-            SELECT count(*) FROM agents a JOIN execution_runs r ON r.organization_id = a.organization_id
+        boolean authorized = !jdbc.query("""
+            SELECT r.id FROM agents a JOIN execution_runs r ON r.organization_id = a.organization_id
             WHERE a.id = ? AND a.token_hash = encode(sha256(convert_to(?, 'UTF8')), 'hex')
               AND a.revoked_at IS NULL AND r.id = ? AND r.status = 'RUNNING'
-            """, Integer.class, agentId, token, runId);
-        if (authorized != 1) throw new SecurityException("Agent not authorized for running execution");
+              AND (r.agent_id IS NULL OR r.agent_id = a.id)
+            FOR UPDATE OF r
+            """, (rs, row) -> rs.getObject("id", UUID.class), agentId, token, runId).isEmpty();
+        if (!authorized) throw new SecurityException("Agent not authorized for running execution");
         UUID scenarioId = UUID.randomUUID();
         jdbc.update("""
             INSERT INTO vanessa_scenarios(id, run_id, agent_id, external_id, feature_name,
