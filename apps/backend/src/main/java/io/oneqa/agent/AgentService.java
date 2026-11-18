@@ -66,26 +66,30 @@ public class AgentService {
     }
 
     @Transactional
-    public List<Assignment> claim(UUID agentId, String token) {
+    public List<Assignment> claim(UUID agentId, String token, UUID projectId) {
         UUID organizationId = authenticateForDispatch(agentId, token);
         List<Assignment> current = jdbc.query("""
             SELECT id, project_id FROM execution_runs
             WHERE agent_id = ? AND status = 'RUNNING'
             """, (rs, row) -> new Assignment(rs.getObject("id", UUID.class),
                 rs.getObject("project_id", UUID.class)), agentId);
-        if (!current.isEmpty()) return current;
+        if (!current.isEmpty()) {
+            return projectId == null || projectId.equals(current.getFirst().projectId())
+                ? current : List.of();
+        }
 
         return jdbc.query("""
             WITH next_run AS (
                 SELECT id FROM execution_runs
                 WHERE organization_id = ? AND status = 'QUEUED'
+                  AND (CAST(? AS uuid) IS NULL OR project_id = ?)
                 ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
             )
             UPDATE execution_runs r SET agent_id = ?, status = 'RUNNING', started_at = now()
             FROM next_run WHERE r.id = next_run.id
             RETURNING r.id, r.project_id
             """, (rs, row) -> new Assignment(rs.getObject("id", UUID.class),
-                rs.getObject("project_id", UUID.class)), organizationId, agentId);
+                rs.getObject("project_id", UUID.class)), organizationId, projectId, projectId, agentId);
     }
 
     @Transactional

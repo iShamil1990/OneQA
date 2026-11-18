@@ -89,8 +89,11 @@ class VanessaResultIntegrationTest {
         mvc.perform(post(claim, agent.id())).andExpect(status().isForbidden());
         mvc.perform(post(claim, outsider.id()).header(token, outsider.token()))
             .andExpect(status().isNoContent());
+        mvc.perform(post(claim, agent.id()).header(token, agent.token())
+            .param("projectId", UUID.randomUUID().toString())).andExpect(status().isNoContent());
         for (int attempt = 0; attempt < 2; attempt++) {
-            mvc.perform(post(claim, agent.id()).header(token, agent.token()))
+            mvc.perform(post(claim, agent.id()).header(token, agent.token())
+                .param("projectId", project.toString()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.runId").value(run.toString()))
                 .andExpect(jsonPath("$.projectId").value(project.toString()));
         }
@@ -101,8 +104,10 @@ class VanessaResultIntegrationTest {
             .contentType(MediaType.APPLICATION_JSON).content(scenario)).andExpect(status().isForbidden());
         mvc.perform(post(finish, peer.id(), run).header(token, peer.token())
             .contentType(MediaType.APPLICATION_JSON).content(passed)).andExpect(status().isConflict());
-        mvc.perform(post(ingest, agent.id(), run).header(token, agent.token())
-            .contentType(MediaType.APPLICATION_JSON).content(scenario)).andExpect(status().isCreated());
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(post(ingest, agent.id(), run).header(token, agent.token())
+                .contentType(MediaType.APPLICATION_JSON).content(scenario)).andExpect(status().isCreated());
+        }
         for (int attempt = 0; attempt < 2; attempt++) {
             mvc.perform(post(finish, agent.id(), run).header(token, agent.token())
                 .contentType(MediaType.APPLICATION_JSON).content(passed)).andExpect(status().isNoContent());

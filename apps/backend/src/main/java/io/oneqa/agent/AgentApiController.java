@@ -52,8 +52,9 @@ public class AgentApiController {
 
     @PostMapping("/api/agents/{agentId}/runs/claim")
     public ResponseEntity<AgentService.Assignment> claim(@PathVariable UUID agentId,
+            @RequestParam(required = false) UUID projectId,
             @RequestHeader(value = "X-OneQA-Agent-Token", required = false) String token) {
-        return agents.claim(agentId, token).stream().findFirst()
+        return agents.claim(agentId, token, projectId).stream().findFirst()
             .map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
     }
 

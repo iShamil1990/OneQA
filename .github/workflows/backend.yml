@@ -5,12 +5,14 @@ on:
     branches: [main, develop]
     paths:
       - "apps/backend/**"
+      - "apps/agent/**"
       - "deploy/**"
       - ".github/workflows/backend.yml"
   pull_request:
     branches: [main, develop]
     paths:
       - "apps/backend/**"
+      - "apps/agent/**"
       - "deploy/**"
       - ".github/workflows/backend.yml"
 
@@ -47,6 +49,9 @@ jobs:
           java-version: "21"
           cache: maven
           cache-dependency-path: apps/backend/pom.xml
+      - name: Verify Vanessa worker
+        working-directory: .
+        run: python3 -m unittest discover -s apps/agent
       - name: Verify
         run: mvn -B --no-transfer-progress verify
       - name: Validate Cloud and Enterprise Compose
