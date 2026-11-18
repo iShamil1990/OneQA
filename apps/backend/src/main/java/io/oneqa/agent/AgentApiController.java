@@ -50,6 +50,23 @@ public class AgentApiController {
             ? ResponseEntity.noContent().build() : ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
     }
 
+    @PostMapping("/api/agents/{agentId}/runs/claim")
+    public ResponseEntity<AgentService.Assignment> claim(@PathVariable UUID agentId,
+            @RequestHeader(value = "X-OneQA-Agent-Token", required = false) String token) {
+        return agents.claim(agentId, token).stream().findFirst()
+            .map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.noContent().build());
+    }
+
+    @PostMapping("/api/agents/{agentId}/runs/{runId}/finish")
+    public ResponseEntity<Void> finish(@PathVariable UUID agentId, @PathVariable UUID runId,
+            @RequestHeader(value = "X-OneQA-Agent-Token", required = false) String token,
+            @RequestBody FinishRunRequest request) {
+        return agents.finish(agentId, token, runId, request.status())
+            ? ResponseEntity.noContent().build() : ResponseEntity.status(HttpStatus.CONFLICT).build();
+    }
+
+    public record FinishRunRequest(String status) {}
+
     private static UUID userId(Jwt jwt) {
         if (jwt == null) throw new SecurityException("Authentication required");
         try { return UUID.fromString(jwt.getSubject()); }
