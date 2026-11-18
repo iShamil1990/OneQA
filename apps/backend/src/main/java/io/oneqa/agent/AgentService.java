@@ -65,6 +65,62 @@ public class AgentService {
             """, organizationId, agentId) == 1;
     }
 
+    @Transactional
+    public List<Assignment> claim(UUID agentId, String token, UUID projectId) {
+        UUID organizationId = authenticateForDispatch(agentId, token);
+        List<Assignment> current = jdbc.query("""
+            SELECT id, project_id FROM execution_runs
+            WHERE agent_id = ? AND status = 'RUNNING'
+            """, (rs, row) -> new Assignment(rs.getObject("id", UUID.class),
+                rs.getObject("project_id", UUID.class)), agentId);
+        if (!current.isEmpty()) {
+            return projectId == null || projectId.equals(current.getFirst().projectId())
+                ? current : List.of();
+        }
+
+        return jdbc.query("""
+            WITH next_run AS (
+                SELECT id FROM execution_runs
+                WHERE organization_id = ? AND status = 'QUEUED'
+                  AND (CAST(? AS uuid) IS NULL OR project_id = ?)
+                ORDER BY created_at, id LIMIT 1 FOR UPDATE SKIP LOCKED
+            )
+            UPDATE execution_runs r SET agent_id = ?, status = 'RUNNING', started_at = now()
+            FROM next_run WHERE r.id = next_run.id
+            RETURNING r.id, r.project_id
+            """, (rs, row) -> new Assignment(rs.getObject("id", UUID.class),
+                rs.getObject("project_id", UUID.class)), organizationId, projectId, projectId, agentId);
+    }
+
+    @Transactional
+    public boolean finish(UUID agentId, String token, UUID runId, String status) {
+        authenticateForDispatch(agentId, token);
+        if (!"PASSED".equals(status) && !"FAILED".equals(status))
+            throw new IllegalArgumentException("Agent result must be PASSED or FAILED");
+
+        int updated = jdbc.update("""
+            UPDATE execution_runs SET status = ?, finished_at = now()
+            WHERE id = ? AND agent_id = ? AND status = 'RUNNING'
+            """, status, runId, agentId);
+        return updated == 1 || Boolean.TRUE.equals(jdbc.queryForObject("""
+            SELECT EXISTS (
+                SELECT 1 FROM execution_runs WHERE id = ? AND agent_id = ? AND status = ?
+            )
+            """, Boolean.class, runId, agentId, status));
+    }
+
+    private UUID authenticateForDispatch(UUID agentId, String token) {
+        if (token == null || token.isBlank()) throw new SecurityException("Agent token required");
+        return jdbc.query("""
+            SELECT organization_id FROM agents WHERE id = ? AND token_hash = ?
+              AND revoked_at IS NULL AND 'vanessa' = ANY(string_to_array(capabilities, ','))
+            FOR UPDATE
+            """, (rs, row) -> rs.getObject("organization_id", UUID.class), agentId, sha256(token))
+            .stream().findFirst().orElseThrow(() -> new SecurityException("Agent not authorized for dispatch"));
+    }
+
+    public record Assignment(UUID runId, UUID projectId) {}
+
     private static String encodeCapabilities(List<String> capabilities) {
         if (capabilities == null) throw new IllegalArgumentException("Capabilities required");
         if (capabilities.size() > 32) throw new IllegalArgumentException("Too many capabilities");

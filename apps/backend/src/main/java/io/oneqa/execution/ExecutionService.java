@@ -58,7 +58,7 @@ public class ExecutionService {
                 started_at = CASE WHEN ? = 'RUNNING' THEN now() ELSE started_at END,
                 finished_at = CASE WHEN ? IN ('PASSED','FAILED','CANCELLED') THEN now() ELSE finished_at END
             WHERE id = ? AND organization_id = ? AND workspace_id = ? AND project_id = ?
-              AND status = ?
+              AND status = ? AND agent_id IS NULL
             """, target.name(), target.name(), target.name(), runId,
             organizationId, workspaceId, projectId, previous);
         return updated == 1;

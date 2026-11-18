@@ -20,3 +20,23 @@ This is the initial management/control-plane contract for OneQA agents. It is **
 ## Not yet implemented
 
 Agent-to-run assignment, capabilities negotiation/versioning, rotation, request signing, mTLS, rate limiting, expiration, distributed leases, heartbeat liveness alerts, and execution results. These belong to subsequent PRs. A production deployment should enforce TLS and apply ingress rate limits.
+
+## Vanessa run dispatch
+
+Register the agent with the `vanessa` capability. Send the agent token in
+`X-OneQA-Agent-Token` for each request.
+
+1. POST `/api/agents/{agentId}/runs/claim`. A `200` response contains
+   `runId` and `projectId`. The oldest available queued run in the agent's
+   organization becomes running. A repeat claim returns the current assignment.
+   A `204` response means there is no available run.
+2. Submit scenario outcomes through the
+   [Vanessa results API](vanessa-results.md) while the run is running.
+3. POST `/api/agents/{agentId}/runs/{runId}/finish` with
+   `{"status":"PASSED"}` or `{"status":"FAILED"}`. The assigned agent can
+   retry the same completion request and receive `204`. A conflicting result
+   or assignment returns `409`.
+
+This protocol covers dispatch and completion. A runner must map the project ID
+to its configured test suite. Expiration and recovery of abandoned assignments
+require a follow-up delivery.

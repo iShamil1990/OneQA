@@ -65,6 +65,59 @@ class VanessaResultIntegrationTest {
     }
 
     @Test
+    void assignedAgentCanReportAndFinishItsRun() throws Exception {
+        UUID org = workspaces.createOrganization("Dispatch " + UUID.randomUUID());
+        UUID other = workspaces.createOrganization("Other dispatch " + UUID.randomUUID());
+        UUID workspace = workspaces.createWorkspace(org, "Main");
+        UUID project = projects.create(org, workspace, "Tests", null);
+        UUID run = runs.queue(org, workspace, project);
+        var agent = agents.register(org, "first", List.of("vanessa"));
+        var peer = agents.register(org, "second", List.of("vanessa"));
+        var outsider = agents.register(other, "outsider", List.of("vanessa"));
+        String claim = "/api/agents/{agentId}/runs/claim";
+        String finish = "/api/agents/{agentId}/runs/{runId}/finish";
+        String ingest = "/api/agents/{agentId}/runs/{runId}/vanessa/scenarios";
+        String token = "X-OneQA-Agent-Token";
+        String scenario = """
+            {"externalId":"claimed-1","featureName":"Feature","scenarioName":"Test",
+             "status":"PASSED","steps":[],"artifacts":[]}
+            """;
+        String passed = """
+            {"status":"PASSED"}
+            """;
+
+        mvc.perform(post(claim, agent.id())).andExpect(status().isForbidden());
+        mvc.perform(post(claim, outsider.id()).header(token, outsider.token()))
+            .andExpect(status().isNoContent());
+        mvc.perform(post(claim, agent.id()).header(token, agent.token())
+            .param("projectId", UUID.randomUUID().toString())).andExpect(status().isNoContent());
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(post(claim, agent.id()).header(token, agent.token())
+                .param("projectId", project.toString()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.runId").value(run.toString()))
+                .andExpect(jsonPath("$.projectId").value(project.toString()));
+        }
+        mvc.perform(post(claim, peer.id()).header(token, peer.token()))
+            .andExpect(status().isNoContent());
+        assertFalse(runs.transition(org, workspace, project, run, ExecutionService.Status.PASSED));
+        mvc.perform(post(ingest, peer.id(), run).header(token, peer.token())
+            .contentType(MediaType.APPLICATION_JSON).content(scenario)).andExpect(status().isForbidden());
+        mvc.perform(post(finish, peer.id(), run).header(token, peer.token())
+            .contentType(MediaType.APPLICATION_JSON).content(passed)).andExpect(status().isConflict());
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(post(ingest, agent.id(), run).header(token, agent.token())
+                .contentType(MediaType.APPLICATION_JSON).content(scenario)).andExpect(status().isCreated());
+        }
+        for (int attempt = 0; attempt < 2; attempt++) {
+            mvc.perform(post(finish, agent.id(), run).header(token, agent.token())
+                .contentType(MediaType.APPLICATION_JSON).content(passed)).andExpect(status().isNoContent());
+        }
+
+        assertEquals(ExecutionService.Status.PASSED, runs.list(org, workspace, project).getFirst().status());
+        assertEquals(1, results.list(org, workspace, project, run).size());
+    }
+
+    @Test
     void readRequiresMembership() throws Exception {
         UUID orgId = workspaces.createOrganization("VA view " + UUID.randomUUID());
         UUID workspace = workspaces.createWorkspace(orgId, "Main");

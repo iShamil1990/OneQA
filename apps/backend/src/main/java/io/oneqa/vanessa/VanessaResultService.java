@@ -33,19 +33,27 @@ public class VanessaResultService {
         if (payload.steps() == null || payload.steps().size() > 1000 ||
             payload.artifacts() == null || payload.artifacts().size() > 50)
             throw new IllegalArgumentException("Invalid steps or artifacts");
-        int authorized = jdbc.queryForObject("""
-            SELECT count(*) FROM agents a JOIN execution_runs r ON r.organization_id = a.organization_id
+        boolean authorized = !jdbc.query("""
+            SELECT r.id FROM agents a JOIN execution_runs r ON r.organization_id = a.organization_id
             WHERE a.id = ? AND a.token_hash = encode(sha256(convert_to(?, 'UTF8')), 'hex')
               AND a.revoked_at IS NULL AND r.id = ? AND r.status = 'RUNNING'
-            """, Integer.class, agentId, token, runId);
-        if (authorized != 1) throw new SecurityException("Agent not authorized for running execution");
+              AND (r.agent_id IS NULL OR r.agent_id = a.id)
+            FOR UPDATE OF r
+            """, (rs, row) -> rs.getObject("id", UUID.class), agentId, token, runId).isEmpty();
+        if (!authorized) throw new SecurityException("Agent not authorized for running execution");
         UUID scenarioId = UUID.randomUUID();
-        jdbc.update("""
+        int inserted = jdbc.update("""
             INSERT INTO vanessa_scenarios(id, run_id, agent_id, external_id, feature_name,
                                           scenario_name, status, error_message)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT (run_id, external_id) DO NOTHING
             """, scenarioId, runId, agentId, payload.externalId(), payload.featureName(),
             payload.scenarioName(), payload.status().name(), payload.errorMessage());
+        if (inserted == 0) {
+            return jdbc.queryForObject("""
+                SELECT id FROM vanessa_scenarios WHERE run_id = ? AND external_id = ?
+                """, UUID.class, runId, payload.externalId());
+        }
         for (Step step : payload.steps()) {
             if (step == null || step.index() < 0 || step.status() == null ||
                 step.durationMs() != null && step.durationMs() < 0)
