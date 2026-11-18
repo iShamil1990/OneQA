@@ -21,7 +21,7 @@ public class SecurityConfiguration {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.GET, "/api/system/ping", "/actuator/health").permitAll()
-                .requestMatchers(HttpMethod.POST, "/api/agents/*/heartbeat").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/agents/*/heartbeat", "/api/agents/*/runs/*/vanessa/scenarios").permitAll()
                 .anyRequest().authenticated())
             .oauth2ResourceServer(oauth -> oauth.jwt(Customizer.withDefaults()))
             .build();
